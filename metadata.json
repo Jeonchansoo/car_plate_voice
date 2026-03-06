@@ -1,0 +1,7 @@
+{
+  "name": "CarPlate Master MVP",
+  "description": "차량 번호판 관리 및 조회 시스템. 관리자 승인 기반 로그인, 차량 번호 뒷자리 검색, CSV 업로드 및 CRUD 기능을 제공합니다.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

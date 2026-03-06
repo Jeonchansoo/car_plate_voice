@@ -1,0 +1,252 @@
+import React, { useState, useEffect } from 'react';
+import { User, CarRecord } from '../types';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+
+const INITIAL_RECORDS: CarRecord[] = [
+  { id: 1, name: '홍길동', carNumber: '24머 3734', 소속: '서울지부' },
+  { id: 2, name: '오감자', carNumber: '31구 2625', 소속: '부산지부' },
+  { id: 3, name: '김갑동', carNumber: '102다 3734', 소속: '인천지부' },
+  { id: 4, name: '이을숙', carNumber: '12사 1234', 소속: '대구지부' },
+  { id: 5, name: '지서방', carNumber: '50두 7889', 소속: '광주지부' },
+  { id: 6, name: '남한놈', carNumber: '98사 1235', 소속: '대전지부' },
+  { id: 7, name: '전봇대', carNumber: '72카 4252', 소속: '울산지부' },
+  { id: 8, name: '이세리나', carNumber: '101자 7889', 소속: '수원지부' },
+];
+
+const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
+  const [query, setQuery] = useState('');
+  const [records, setRecords] = useState<CarRecord[]>(INITIAL_RECORDS);
+  const [results, setResults] = useState<CarRecord[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const {
+    status: speechStatus,
+    isListening,
+    rawTranscript,
+    digits: speechDigits,
+    error: speechError,
+    startListening,
+    stopListening,
+  } = useSpeechRecognition({ lang: 'ko-KR' });
+
+  useEffect(() => {
+    const saved = localStorage.getItem('car_records');
+    if (saved) {
+      setRecords(JSON.parse(saved));
+    }
+  }, []);
+
+  const runSearch = (value: string) => {
+    setHasSearched(true);
+
+    // Search logic: check if the query matches the last 4 digits
+    const filtered = records.filter(record => {
+      const parts = record.carNumber.split(' ');
+      const lastFour = parts[parts.length - 1];
+      // Fix: replaceAll is not supported in some ES versions, using split().join('') instead
+      return lastFour.includes(value) || record.carNumber.split(' ').join('').includes(value);
+    });
+
+    setResults(filtered);
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query) return;
+    runSearch(query);
+  };
+
+  useEffect(() => {
+    if (speechDigits && speechDigits !== query) {
+      setQuery(speechDigits);
+      runSearch(speechDigits);
+    }
+  }, [speechDigits]);
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <section className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-3xl p-6 md:p-8 text-white shadow-2xl shadow-blue-200">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold">안녕하세요, {user.name}님!</h2>
+          <p className="text-blue-100 text-sm mt-1">차량 번호판 뒷자리(4자리)를 입력하여 차주 정보를 빠르고 정확하게 조회하세요.</p>
+        </div>
+
+        <form onSubmit={handleSearch} className="relative w-full">
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="차량번호 뒷자리 4자리 입력 (예: 3734)"
+            className="w-full pl-12 pr-28 py-4 rounded-2xl text-slate-900 text-4xl font-bold text-center tracking-[0.15em] outline-none focus:ring-4 focus:ring-blue-400/50 shadow-lg placeholder:text-slate-400 placeholder:font-normal placeholder:text-[10px] placeholder:text-center placeholder:tracking-normal"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              if (speechStatus === 'unsupported') return;
+              if (isListening) {
+                stopListening();
+              } else {
+                startListening();
+              }
+            }}
+            className={`absolute left-2 top-2 bottom-2 w-10 flex items-center justify-center rounded-xl border text-sm font-semibold transition active:scale-95 ${
+              speechStatus === 'unsupported'
+                ? 'bg-slate-500/40 border-slate-400/60 text-slate-200 cursor-not-allowed'
+                : isListening
+                ? 'bg-red-500 border-red-400 text-white shadow-md shadow-red-300/60'
+                : 'bg-white/15 border-white/60 text-white hover:bg-white/25'
+            }`}
+            aria-label={isListening ? '음성 인식 중지' : '음성으로 입력'}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 1a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="8" y1="23" x2="16" y2="23" />
+            </svg>
+          </button>
+          <button
+            type="submit"
+            className="absolute right-2 top-2 bottom-2 px-5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-500 transition active:scale-95"
+          >
+            조회하기
+          </button>
+        </form>
+
+        {/* 직접 입력 / 음성 입력 토글 버튼 영역 */}
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const input = document.querySelector<HTMLInputElement>('input[placeholder^=\"차량번호\"]');
+              input?.focus();
+            }}
+            className="flex-1 py-2.5 rounded-xl bg-white/90 text-blue-700 font-semibold text-sm shadow-sm hover:bg-white"
+          >
+            직접 입력
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (speechStatus === 'unsupported') return;
+              if (isListening) {
+                stopListening();
+              } else {
+                startListening();
+              }
+            }}
+            className={`flex-1 py-2.5 rounded-xl font-semibold text-sm shadow-sm transition ${
+              speechStatus === 'unsupported'
+                ? 'bg-slate-500/60 text-slate-200 cursor-not-allowed'
+                : isListening
+                ? 'bg-red-500 text-white'
+                : 'bg-emerald-400 text-emerald-950 hover:bg-emerald-300'
+            }`}
+          >
+            {speechStatus === 'unsupported'
+              ? '브라우저가 음성 인식을 지원하지 않아요'
+              : isListening
+              ? '음성 인식 중지'
+              : '🎤 음성으로 입력'}
+          </button>
+        </div>
+
+        <div className="mt-3 text-xs space-y-1 min-h-[1.5rem]">
+          {speechStatus === 'unsupported' && (
+            <p className="text-yellow-100/90">
+              이 브라우저에서는 음성 인식(Web Speech API)이 지원되지 않습니다. 최신 Chrome 또는 Edge를
+              사용해 주세요.
+            </p>
+          )}
+          {speechError && (
+            <p className="text-red-100">
+              음성 인식 오류: <span className="underline underline-offset-2">{speechError}</span>
+            </p>
+          )}
+          {rawTranscript && !speechError && (
+            <p className="text-blue-100/90">
+              들은 내용: <span className="font-semibold">"{rawTranscript}"</span>
+              {speechDigits && (
+                <span className="ml-2">
+                  → 해석된 번호판 뒷자리: <span className="font-bold">{speechDigits}</span>
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b bg-slate-50 flex justify-between items-center">
+          <h3 className="font-bold text-slate-800">조회 결과</h3>
+          <span className="text-sm text-slate-500">총 {results.length}건</span>
+        </div>
+
+        <div className="divide-y">
+          {results.length > 0 ? (
+            results.map((record) => (
+              <div key={record.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-blue-50/30 transition">
+                <div className="flex items-center gap-6">
+                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
+                    {record.id}
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">차주 성함</div>
+                    <div className="text-xl font-bold text-slate-900">{record.name}</div>
+                    <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1 mt-2">소속</div>
+                    <div className="text-xl font-bold text-blue-600">{record.소속}</div>
+                  </div>
+                </div>
+                <div className="bg-slate-100 px-6 py-3 rounded-xl border-2 border-slate-200">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase mb-1 text-center tracking-[0.2em]">Vehicle Number</div>
+                  <div className="text-2xl font-black text-slate-800 tracking-wider whitespace-nowrap">{record.carNumber}</div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="p-20 text-center">
+              {hasSearched ? (
+                <div className="space-y-3">
+                  <div className="text-slate-300 flex justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" /></svg>
+                  </div>
+                  <p className="text-slate-500 font-medium">검색 결과가 없습니다.</p>
+                  <p className="text-slate-400 text-sm">번호를 다시 확인해 주세요.</p>
+                </div>
+              ) : (
+                <div className="text-slate-400">조회하실 차량의 번호를 입력해 주세요.</div>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Suggested Search Section for Demo */}
+      {!hasSearched && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {['3734', '2625', '1234', '7889'].map(num => (
+            <button
+              key={num}
+              onClick={() => { setQuery(num); setHasSearched(false); }}
+              className="p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:text-blue-600 transition text-sm font-medium text-slate-600 text-center shadow-sm"
+            >
+              "{num}" 검색해보기
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SearchPortal;
