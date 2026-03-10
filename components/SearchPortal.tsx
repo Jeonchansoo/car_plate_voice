@@ -42,14 +42,13 @@ function extractLastFourDigits(carNum: string): string {
  * - 없으면 컬럼 정의에서 '차량' 또는 '번호'가 포함된 컬럼 탐색
  */
 function getCarNumberValue(record: CarRecord, columns: ColumnDef[]): string {
+  const carColId = getCarNumberColumnId(columns);
+
   // 1. 표준 키 확인
   if (record.carNumber) return String(record.carNumber);
   
   // 2. 컬럼 정의에서 차량번호 관련 컬럼 찾기
-  const carCol = columns.find(c => 
-    c.label.includes('차량') || c.label.includes('번호') || c.label.includes('plate')
-  );
-  if (carCol && record[carCol.id]) return String(record[carCol.id]);
+  if (carColId && record[carColId]) return String(record[carColId]);
   
   // 3. 모든 필드에서 차량번호 패턴 찾기 (숫자+한글+숫자 패턴)
   for (const key of Object.keys(record)) {
@@ -59,6 +58,21 @@ function getCarNumberValue(record: CarRecord, columns: ColumnDef[]): string {
   }
   
   return '';
+}
+
+/**
+ * 차량번호 컬럼 ID를 동적으로 찾기
+ * - carNumber 기본 키 우선
+ * - 없으면 컬럼 정의에서 '차량', '번호', 'plate' 포함 컬럼 탐색
+ */
+function getCarNumberColumnId(columns: ColumnDef[]): string | null {
+  if (columns.find(c => c.id === 'carNumber')) return 'carNumber';
+
+  const carCol = columns.find(c =>
+    c.label.includes('차량') || c.label.includes('번호') || c.label.toLowerCase().includes('plate')
+  );
+
+  return carCol ? carCol.id : null;
 }
 
 const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
@@ -264,6 +278,13 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
               const deptCol = columns.find(c => c.label.includes('소속') || c.id === '소속');
               const displayName = nameCol ? record[nameCol.id] : record.name;
               const displayDept = deptCol ? record[deptCol.id] : record['소속'];
+              const carNumberColId = getCarNumberColumnId(columns);
+
+              const extraColumns = columns.filter(c =>
+                c.id !== nameCol?.id &&
+                c.id !== deptCol?.id &&
+                c.id !== carNumberColId
+              );
               
               return (
                 <div key={record.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-blue-50/30 transition">
@@ -279,6 +300,20 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
                           <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1 mt-2">소속</div>
                           <div className="text-xl font-bold text-blue-600">{displayDept}</div>
                         </>
+                      )}
+                      {extraColumns.length > 0 && (
+                        <div className="mt-3 space-y-1">
+                          {extraColumns.map(col => {
+                            const value = record[col.id];
+                            if (value === undefined || value === null || value === '') return null;
+                            return (
+                              <div key={col.id} className="text-xs text-slate-600 flex gap-2">
+                                <span className="font-semibold text-slate-400 min-w-[3.5rem]">{col.label}</span>
+                                <span className="text-slate-800">{String(value)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
                     </div>
                   </div>
