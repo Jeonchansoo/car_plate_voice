@@ -19,6 +19,35 @@ const INITIAL_RECORDS: CarRecord[] = [
   { id: 8, name: '이세리나', carNumber: '101자 7889', 소속: '수원지부' },
 ];
 
+/**
+ * 한글이 깨졌는지 감지하는 함수
+ * - 치환문자(U+FFFD), 제어문자, 의미없는 특수조합 등이 있으면 깨진 것으로 판단
+ */
+function hasGarbledKorean(text: string): boolean {
+  // U+FFFD 치환 문자가 있으면 깨진 것
+  if (text.includes('\uFFFD')) return true;
+  // 일반적이지 않은 제어 문자 범위가 다수 포함되면
+  const controlChars = text.match(/[\x80-\x9F]/g);
+  if (controlChars && controlChars.length > 2) return true;
+  return false;
+}
+
+/**
+ * 업로드된 헤더를 기존 컬럼 ID에 매핑하는 함수
+ * - 기존 DEFAULT_COLUMNS의 label과 일치하면 기존 id 사용
+ * - 일치하지 않으면 새 id 생성
+ */
+function mapHeaderToColumnId(header: string, existingColumns: ColumnDef[]): string {
+  // 기존 컬럼에서 label이 일치하는 것 찾기
+  const found = existingColumns.find(c => c.label === header);
+  if (found) return found.id;
+  // DEFAULT_COLUMNS에서도 찾기
+  const defaultFound = DEFAULT_COLUMNS.find(c => c.label === header);
+  if (defaultFound) return defaultFound.id;
+  // 새 ID 생성
+  return 'col_' + Date.now() + Math.random();
+}
+
 const AdminDashboard: React.FC = () => {
   const [records, setRecords] = useState<CarRecord[]>([]);
   const [columns, setColumns] = useState<ColumnDef[]>(DEFAULT_COLUMNS);
@@ -59,87 +88,135 @@ const AdminDashboard: React.FC = () => {
     setNewRecordVals({});
   };
 
+  // 요청 1: 전체 삭제 시 수동등록/속성관리도 초기화
   const handleDeleteSelected = () => {
     if (selectedIds.length === 0) {
       alert('삭제할 항목을 선택해주세요.');
       return;
     }
-    if (confirm(`선택한 ${selectedIds.length}개의 데이터를 삭제하시겠습니까?`)) {
-      saveRecords(records.filter(r => !selectedIds.includes(r.id)));
+
+    const isFullDelete = selectedIds.length === records.length;
+
+    if (confirm(`선택한 ${selectedIds.length}개의 데이터를 삭제하시겠습니까?${isFullDelete ? '\n\n⚠️ 전체 데이터를 삭제하면 속성 관리도 기본값으로 초기화됩니다.' : ''}`)) {
+      if (isFullDelete) {
+        // 전체 삭제: 레코드, 컬럼, 폼 모두 초기화
+        saveRecords([]);
+        saveColumns(DEFAULT_COLUMNS);
+        setNewRecordVals({});
+        localStorage.removeItem('car_records');
+        localStorage.removeItem('car_columns');
+      } else {
+        saveRecords(records.filter(r => !selectedIds.includes(r.id)));
+      }
       setSelectedIds([]);
     }
   };
 
+  // 요청 2: CSV/엑셀 업로드 시 한글 깨짐 수정
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const data = new Uint8Array(event.target?.result as ArrayBuffer);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      const json = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+    const isCSV = file.name.toLowerCase().endsWith('.csv');
 
-      if (json.length === 0) return;
+    if (isCSV) {
+      // CSV 파일: 텍스트로 읽어서 인코딩 처리
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        let text = event.target?.result as string;
 
-      const headerRow = json[0].map(h => String(h || '').trim());
-      const newCols = [...columns];
-
-      headerRow.forEach((h: string) => {
-        if (h && h.toLowerCase() !== 'id' && !newCols.find(c => c.label === h)) {
-          newCols.push({ id: 'col_' + Date.now() + Math.random(), label: h });
+        // 한글 깨짐 감지 → EUC-KR로 재시도
+        if (hasGarbledKorean(text)) {
+          const reReader = new FileReader();
+          reReader.onload = (reEvent) => {
+            const reText = reEvent.target?.result as string;
+            processCSVText(reText);
+          };
+          reReader.readAsText(file, 'euc-kr');
+        } else {
+          processCSVText(text);
         }
-      });
-      saveColumns(newCols);
+      };
+      reader.readAsText(file, 'utf-8');
+    } else {
+      // XLSX/XLS 파일: ArrayBuffer로 읽기 (XLSX 포맷이 인코딩 자체 처리)
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const json = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+        processUploadedData(json);
+      };
+      reader.readAsArrayBuffer(file);
+    }
 
-      const newFromUpload: CarRecord[] = [];
-      const currentMaxId = records.length > 0 ? Math.max(...records.map(r => r.id)) : 0;
-      let nextId = currentMaxId + 1;
+    e.target.value = '';
+  };
 
-      for (let i = 1; i < json.length; i++) {
-        const row = json[i];
-        if (row && row.length > 0) {
-          const record: CarRecord = { id: nextId++ };
-          headerRow.forEach((h: string, idx: number) => {
-            if (h.toLowerCase() === 'id') {
-              record.id = parseInt(row[idx]) || record.id;
-            } else {
-              const mappedCol = newCols.find(c => c.label === h);
-              if (mappedCol) {
-                record[mappedCol.id] = row[idx] ? String(row[idx]).trim() : '';
-              }
-            }
-          });
-          newFromUpload.push(record);
+  // CSV 텍스트를 파싱하여 데이터로 변환
+  const processCSVText = (text: string) => {
+    // BOM 제거
+    const cleanText = text.replace(/^\uFEFF/, '');
+    const workbook = XLSX.read(cleanText, { type: 'string' });
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+    const json = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+    processUploadedData(json);
+  };
+
+  // 요청 3: 업로드 데이터의 컬럼 매핑 수정
+  const processUploadedData = (json: any[][]) => {
+    if (json.length === 0) return;
+
+    const headerRow = json[0].map((h: any) => String(h || '').trim());
+    const newCols = [...columns];
+
+    // 헤더를 기존 컬럼에 매핑하거나 새로 추가
+    const headerToColId: Record<string, string> = {};
+    headerRow.forEach((h: string) => {
+      if (h && h.toLowerCase() !== 'id') {
+        const existingCol = newCols.find(c => c.label === h);
+        if (existingCol) {
+          headerToColId[h] = existingCol.id;
+        } else {
+          const mappedId = mapHeaderToColumnId(h, newCols);
+          headerToColId[h] = mappedId;
+          if (!newCols.find(c => c.id === mappedId)) {
+            newCols.push({ id: mappedId, label: h });
+          }
         }
       }
-      saveRecords([...records, ...newFromUpload]);
-      alert(`${newFromUpload.length}개의 데이터가 추가되었습니다.`);
-      e.target.value = '';
-    };
-    reader.readAsArrayBuffer(file);
-  };
-
-  const downloadFile = (format: 'csv' | 'xlsx') => {
-    if (records.length === 0) {
-      alert('다운로드할 데이터가 없습니다.');
-      return;
-    }
-    const dataToExport = records.map(record => {
-      const row: any = { ID: record.id };
-      columns.forEach(col => {
-        row[col.label] = record[col.id] || '';
-      });
-      return row;
     });
+    saveColumns(newCols);
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Records");
-    XLSX.writeFile(workbook, `car_records.${format}`);
+    const newFromUpload: CarRecord[] = [];
+    const currentMaxId = records.length > 0 ? Math.max(...records.map(r => r.id)) : 0;
+    let nextId = currentMaxId + 1;
+
+    for (let i = 1; i < json.length; i++) {
+      const row = json[i];
+      if (row && row.length > 0) {
+        const record: CarRecord = { id: nextId++ };
+        headerRow.forEach((h: string, idx: number) => {
+          if (h.toLowerCase() === 'id') {
+            record.id = parseInt(row[idx]) || record.id;
+          } else {
+            const colId = headerToColId[h];
+            if (colId) {
+              record[colId] = row[idx] != null ? String(row[idx]).trim() : '';
+            }
+          }
+        });
+        newFromUpload.push(record);
+      }
+    }
+    saveRecords([...records, ...newFromUpload]);
+    alert(`${newFromUpload.length}개의 데이터가 추가되었습니다.`);
   };
+
+
 
   const handleAddColumn = () => {
     if (!newColumnName.trim()) {
@@ -254,17 +331,7 @@ const AdminDashboard: React.FC = () => {
               </label>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-              <h3 className="font-bold text-slate-900 mb-2 text-sm">데이터 다운로드</h3>
-              <div className="flex gap-2">
-                <button onClick={() => downloadFile('csv')} className="flex-1 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold hover:bg-emerald-100 transition">
-                  CSV 다운로드
-                </button>
-                <button onClick={() => downloadFile('xlsx')} className="flex-1 py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition">
-                  엑셀 다운로드
-                </button>
-              </div>
-            </div>
+
 
           </div>
 

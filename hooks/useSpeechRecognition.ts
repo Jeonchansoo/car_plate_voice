@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { voiceToFourDigits } from '../utils/voiceToDigits';
+import { voiceToFourDigits, pickBestTranscript } from '../utils/voiceToDigits';
 
 type SpeechStatus = 'idle' | 'listening' | 'unsupported' | 'error';
 
@@ -72,7 +72,8 @@ export function useSpeechRecognition(
     recognition.lang = lang;
     recognition.interimResults = true;
     recognition.continuous = false;
-    recognition.maxAlternatives = 1;
+    // 요청 4: 더 많은 대안을 받아 숫자가 포함된 결과를 우선 선택
+    recognition.maxAlternatives = 5;
 
     recognition.onstart = () => {
       setStatus('listening');
@@ -100,9 +101,22 @@ export function useSpeechRecognition(
 
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const result = event.results[i];
-        if (result[0]) {
-          transcript += result[0].transcript;
-          if (result.isFinal) hasFinal = true;
+
+        if (result.isFinal) {
+          hasFinal = true;
+          // 모든 alternative를 수집하여 숫자가 가장 많은 것을 선택
+          const alternatives: string[] = [];
+          for (let j = 0; j < result.length; j++) {
+            if (result[j] && result[j].transcript) {
+              alternatives.push(result[j].transcript.trim());
+            }
+          }
+          transcript = pickBestTranscript(alternatives);
+        } else {
+          // interim 결과: 첫 번째 결과 사용
+          if (result[0]) {
+            transcript += result[0].transcript;
+          }
         }
       }
 
@@ -170,4 +184,3 @@ export function useSpeechRecognition(
     stopListening,
   };
 }
-

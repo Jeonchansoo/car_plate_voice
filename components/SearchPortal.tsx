@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, CarRecord } from '../types';
+import { User, CarRecord, ColumnDef } from '../types';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 const INITIAL_RECORDS: CarRecord[] = [
@@ -13,9 +13,58 @@ const INITIAL_RECORDS: CarRecord[] = [
   { id: 8, name: '이세리나', carNumber: '101자 7889', 소속: '수원지부' },
 ];
 
+const DEFAULT_COLUMNS: ColumnDef[] = [
+  { id: 'name', label: '이름' },
+  { id: 'carNumber', label: '차량 번호' },
+  { id: '소속', label: '소속' }
+];
+
+/**
+ * 차량번호 문자열에서 끝에서 4자리 숫자를 추출
+ * '24머 3734' → '3734'
+ * '24머3734' → '3734'
+ * '102다 3734' → '3734'
+ * '101자7889' → '7889'
+ */
+function extractLastFourDigits(carNum: string): string {
+  if (!carNum) return '';
+  // 모든 숫자를 추출
+  const allDigits = carNum.replace(/[^0-9]/g, '');
+  if (allDigits.length >= 4) {
+    return allDigits.slice(-4);
+  }
+  return allDigits;
+}
+
+/**
+ * 차량번호 컬럼의 값을 동적으로 찾기
+ * - 먼저 carNumber 키를 확인
+ * - 없으면 컬럼 정의에서 '차량' 또는 '번호'가 포함된 컬럼 탐색
+ */
+function getCarNumberValue(record: CarRecord, columns: ColumnDef[]): string {
+  // 1. 표준 키 확인
+  if (record.carNumber) return String(record.carNumber);
+  
+  // 2. 컬럼 정의에서 차량번호 관련 컬럼 찾기
+  const carCol = columns.find(c => 
+    c.label.includes('차량') || c.label.includes('번호') || c.label.includes('plate')
+  );
+  if (carCol && record[carCol.id]) return String(record[carCol.id]);
+  
+  // 3. 모든 필드에서 차량번호 패턴 찾기 (숫자+한글+숫자 패턴)
+  for (const key of Object.keys(record)) {
+    if (key === 'id' || key === 'name') continue;
+    const val = String(record[key] || '');
+    if (/\d+[가-힣]\s?\d{4}/.test(val)) return val;
+  }
+  
+  return '';
+}
+
 const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
   const [query, setQuery] = useState('');
   const [records, setRecords] = useState<CarRecord[]>(INITIAL_RECORDS);
+  const [columns, setColumns] = useState<ColumnDef[]>(DEFAULT_COLUMNS);
   const [results, setResults] = useState<CarRecord[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -34,17 +83,34 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
     if (saved) {
       setRecords(JSON.parse(saved));
     }
+    const savedCols = localStorage.getItem('car_columns');
+    if (savedCols) {
+      setColumns(JSON.parse(savedCols));
+    }
   }, []);
 
+  // 요청 3 & 5: 개선된 검색 로직
   const runSearch = (value: string) => {
     setHasSearched(true);
 
-    // Search logic: check if the query matches the last 4 digits
+    // 검색어에서 숫자만 추출
+    const searchDigits = value.replace(/[^0-9]/g, '');
+    if (!searchDigits) {
+      setResults([]);
+      return;
+    }
+
     const filtered = records.filter(record => {
-      const targetNumber = record.carNumber || '';
-      const parts = targetNumber.split(' ');
-      const lastFour = parts[parts.length - 1] || '';
-      return lastFour.includes(value) || targetNumber.split(' ').join('').includes(value);
+      const carNumber = getCarNumberValue(record, columns);
+      if (!carNumber) return false;
+      
+      // 차량번호에서 끝 4자리 추출
+      const lastFour = extractLastFourDigits(carNumber);
+      // 전체 숫자도 추출
+      const allDigits = carNumber.replace(/[^0-9]/g, '');
+      
+      // 끝 4자리에서 검색 또는 전체 숫자에서 검색
+      return lastFour.includes(searchDigits) || allDigits.includes(searchDigits);
     });
 
     setResults(filtered);
@@ -192,25 +258,37 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
 
         <div className="divide-y">
           {results.length > 0 ? (
-            results.map((record) => (
-              <div key={record.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-blue-50/30 transition">
-                <div className="flex items-center gap-6">
-                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
-                    {record.id}
+            results.map((record) => {
+              const carNumber = getCarNumberValue(record, columns);
+              const nameCol = columns.find(c => c.label.includes('이름') || c.id === 'name');
+              const deptCol = columns.find(c => c.label.includes('소속') || c.id === '소속');
+              const displayName = nameCol ? record[nameCol.id] : record.name;
+              const displayDept = deptCol ? record[deptCol.id] : record['소속'];
+              
+              return (
+                <div key={record.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-blue-50/30 transition">
+                  <div className="flex items-center gap-6">
+                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
+                      {record.id}
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">차주 성함</div>
+                      <div className="text-xl font-bold text-slate-900">{displayName}</div>
+                      {displayDept && (
+                        <>
+                          <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1 mt-2">소속</div>
+                          <div className="text-xl font-bold text-blue-600">{displayDept}</div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">차주 성함</div>
-                    <div className="text-xl font-bold text-slate-900">{record.name}</div>
-                    <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1 mt-2">소속</div>
-                    <div className="text-xl font-bold text-blue-600">{record.소속}</div>
+                  <div className="bg-slate-100 px-6 py-3 rounded-xl border-2 border-slate-200">
+                    <div className="text-[10px] text-slate-400 font-bold uppercase mb-1 text-center tracking-[0.2em]">Vehicle Number</div>
+                    <div className="text-2xl font-black text-slate-800 tracking-wider whitespace-nowrap">{carNumber}</div>
                   </div>
                 </div>
-                <div className="bg-slate-100 px-6 py-3 rounded-xl border-2 border-slate-200">
-                  <div className="text-[10px] text-slate-400 font-bold uppercase mb-1 text-center tracking-[0.2em]">Vehicle Number</div>
-                  <div className="text-2xl font-black text-slate-800 tracking-wider whitespace-nowrap">{record.carNumber}</div>
-                </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="p-20 text-center">
               {hasSearched ? (
