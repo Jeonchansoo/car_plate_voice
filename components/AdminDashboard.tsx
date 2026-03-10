@@ -240,12 +240,17 @@ const AdminDashboard: React.FC = () => {
 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
               <h3 className="font-bold text-slate-900 mb-2 text-sm">대량 업로드 (.csv / .xlsx)</h3>
-              <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-100 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition">
-                <span className="text-xs text-slate-400 font-medium text-center">
+              <label className="relative flex flex-col items-center justify-center w-full h-24 border-2 border-slate-100 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition overflow-hidden">
+                <span className="text-xs text-slate-400 font-medium text-center z-10 pointer-events-none">
                   파일 선택<br />
                   (CSV, 엑셀)
                 </span>
-                <input type="file" accept=".csv, .xlsx, .xls" className="hidden" onChange={handleFileUpload} />
+                <input
+                  type="file"
+                  accept=".csv, text/csv, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, .xls, application/vnd.ms-excel"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  onChange={handleFileUpload}
+                />
               </label>
             </div>
 
