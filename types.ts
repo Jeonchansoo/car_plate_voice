@@ -19,11 +19,14 @@ export interface User {
   createdAt: string;
 }
 
+export interface ColumnDef {
+  id: string;
+  label: string;
+}
+
 export interface CarRecord {
   id: number;
-  name: string;
-  carNumber: string;
-  소속: string;
+  [key: string]: any;
 }
 
 export interface AuthState {

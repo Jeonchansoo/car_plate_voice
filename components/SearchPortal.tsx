@@ -41,10 +41,10 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
 
     // Search logic: check if the query matches the last 4 digits
     const filtered = records.filter(record => {
-      const parts = record.carNumber.split(' ');
-      const lastFour = parts[parts.length - 1];
-      // Fix: replaceAll is not supported in some ES versions, using split().join('') instead
-      return lastFour.includes(value) || record.carNumber.split(' ').join('').includes(value);
+      const targetNumber = record.carNumber || '';
+      const parts = targetNumber.split(' ');
+      const lastFour = parts[parts.length - 1] || '';
+      return lastFour.includes(value) || targetNumber.split(' ').join('').includes(value);
     });
 
     setResults(filtered);
@@ -90,13 +90,12 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
                 startListening();
               }
             }}
-            className={`absolute left-2 top-2 bottom-2 w-10 flex items-center justify-center rounded-xl border text-sm font-semibold transition active:scale-95 ${
-              speechStatus === 'unsupported'
+            className={`absolute left-2 top-2 bottom-2 w-10 flex items-center justify-center rounded-xl border text-sm font-semibold transition active:scale-95 ${speechStatus === 'unsupported'
                 ? 'bg-slate-500/40 border-slate-400/60 text-slate-200 cursor-not-allowed'
                 : isListening
-                ? 'bg-red-500 border-red-400 text-white shadow-md shadow-red-300/60'
-                : 'bg-white/15 border-white/60 text-white hover:bg-white/25'
-            }`}
+                  ? 'bg-red-500 border-red-400 text-white shadow-md shadow-red-300/60'
+                  : 'bg-white/15 border-white/60 text-white hover:bg-white/25'
+              }`}
             aria-label={isListening ? '음성 인식 중지' : '음성으로 입력'}
           >
             <svg
@@ -145,19 +144,18 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
                 startListening();
               }
             }}
-            className={`flex-1 py-2.5 rounded-xl font-semibold text-sm shadow-sm transition ${
-              speechStatus === 'unsupported'
+            className={`flex-1 py-2.5 rounded-xl font-semibold text-sm shadow-sm transition ${speechStatus === 'unsupported'
                 ? 'bg-slate-500/60 text-slate-200 cursor-not-allowed'
                 : isListening
-                ? 'bg-red-500 text-white'
-                : 'bg-emerald-400 text-emerald-950 hover:bg-emerald-300'
-            }`}
+                  ? 'bg-red-500 text-white'
+                  : 'bg-emerald-400 text-emerald-950 hover:bg-emerald-300'
+              }`}
           >
             {speechStatus === 'unsupported'
               ? '브라우저가 음성 인식을 지원하지 않아요'
               : isListening
-              ? '음성 인식 중지'
-              : '🎤 음성으로 입력'}
+                ? '음성 인식 중지'
+                : '🎤 음성으로 입력'}
           </button>
         </div>
 
