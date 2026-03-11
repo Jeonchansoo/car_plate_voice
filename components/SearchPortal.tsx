@@ -5,20 +5,20 @@ import { usePressAndHoldSpeech } from '../hooks/usePressAndHoldSpeech';
 import { requestMicrophonePermission, checkMicrophonePermission } from '../utils/microphonePermission';
 
 const INITIAL_RECORDS: CarRecord[] = [
-  { id: 1, name: '홍길동', carNumber: '24머 3734', 소속: '서울지부' },
-  { id: 2, name: '오감자', carNumber: '31구 2625', 소속: '부산지부' },
-  { id: 3, name: '김갑동', carNumber: '102다 3734', 소속: '인천지부' },
-  { id: 4, name: '이을숙', carNumber: '12사 1234', 소속: '대구지부' },
-  { id: 5, name: '지서방', carNumber: '50두 7889', 소속: '광주지부' },
-  { id: 6, name: '남한놈', carNumber: '98사 1235', 소속: '대전지부' },
-  { id: 7, name: '전봇대', carNumber: '72카 4252', 소속: '울산지부' },
-  { id: 8, name: '이세리나', carNumber: '101자 7889', 소속: '수원지부' },
+  { id: 1, name: '홍길동', carNumber: '24머 3734', 출입증: '[1] 상주 000' },
+  { id: 2, name: '오감자', carNumber: '31구 2625', 출입증: '[1] 상주 001' },
+  { id: 3, name: '김갑동', carNumber: '102다 3734', 출입증: '[1] 상주 002' },
+  { id: 4, name: '이을숙', carNumber: '12사 1234', 출입증: '[1] 상주 003' },
+  { id: 5, name: '지소연', carNumber: '50두 7889', 출입증: '[1] 상주 004' },
+  { id: 6, name: '카리나', carNumber: '98사 1235', 출입증: '[1] 상주 205' },
+  { id: 7, name: '전봇대', carNumber: '72카 4252', 출입증: '[1] 상주 120' },
+  { id: 8, name: '이세리나', carNumber: '101자 7889', 출입증: '[1] 상주 301' },
 ];
 
 const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'name', label: '이름' },
   { id: 'carNumber', label: '차량 번호' },
-  { id: '소속', label: '소속' }
+  { id: '출입증', label: '출입증' }
 ];
 
 /**
@@ -283,7 +283,7 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
           <button
             type="button"
             onClick={handleVoiceInputClick}
-            className={`py-2.5 rounded-xl font-semibold text-sm shadow-sm transition flex items-center justify-center gap-2 ${speechStatus === 'unsupported'
+            className={`py-2.5 px-3 rounded-xl font-semibold text-xs shadow-sm transition flex items-center justify-center gap-2 min-w-0 flex-shrink-0 ${speechStatus === 'unsupported'
                 ? 'bg-slate-500/60 text-slate-200 cursor-not-allowed'
                 : isListening
                   ? 'bg-red-500 text-white'
@@ -305,7 +305,7 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
             onMouseLeave={handleMouseUp}
             onTouchStart={handlePressAndHoldStart}
             onTouchEnd={handleTouchEnd}
-            className={`py-2.5 rounded-xl font-semibold text-sm shadow-sm transition flex items-center justify-center gap-2 ${pressAndHoldStatus === 'unsupported'
+            className={`py-2.5 px-3 rounded-xl font-semibold text-xs shadow-sm transition flex items-center justify-center gap-2 min-w-0 flex-shrink-0 ${pressAndHoldStatus === 'unsupported'
                 ? 'bg-slate-500/60 text-slate-200 cursor-not-allowed'
                 : isPressAndHoldListening
                   ? 'bg-red-500 text-white'
@@ -362,24 +362,24 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
             results.map((record) => {
               const carNumber = getCarNumberValue(record, columns);
               const nameCol = columns.find(c => c.label.includes('이름') || c.id === 'name');
-              const deptCol = columns.find(c => c.label.includes('소속') || c.id === '소속');
+              const passCol = columns.find(c => c.label.includes('출입증') || c.id === '출입증');
               const displayName = nameCol ? record[nameCol.id] : record.name;
-              const displayDept = deptCol ? record[deptCol.id] : record['소속'];
+              const displayPass = passCol ? record[passCol.id] : record['출입증'];
               const carNumberColId = getCarNumberColumnId(columns);
 
               const extraColumns = columns.filter(c =>
                 c.id !== nameCol?.id &&
-                c.id !== deptCol?.id &&
+                c.id !== passCol?.id &&
                 c.id !== carNumberColId
               );
               
               return (
                 <div key={record.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-blue-50/30 transition">
-                  <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 flex items-center justify-center text-white font-bold text-3xl shadow-lg shadow-blue-200/50">
+                  <div className="flex items-start gap-4">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 flex items-center justify-center text-white font-bold text-base shadow-lg shadow-blue-200/50">
                       {record.id}
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">차주 성함</div>
                       <div className="text-3xl font-bold text-slate-900">{displayName}</div>
                       {extraColumns.length > 0 && (
@@ -399,11 +399,11 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
                     </div>
                   </div>
                   <div className="flex flex-col md:flex-row md:items-center gap-6">
-                    {displayDept && (
+                    {displayPass && (
                       <>
                         <div>
-                          <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">소속</div>
-                          <div className="text-4xl font-bold text-blue-600">{displayDept}</div>
+                          <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">출입증</div>
+                          <div className="text-4xl font-bold text-blue-600">{displayPass}</div>
                         </div>
                       </>
                     )}

@@ -5,18 +5,18 @@ import * as XLSX from 'xlsx';
 const DEFAULT_COLUMNS: ColumnDef[] = [
   { id: 'name', label: '이름' },
   { id: 'carNumber', label: '차량 번호' },
-  { id: '소속', label: '소속' }
+  { id: '출입증', label: '출입증' }
 ];
 
 const INITIAL_RECORDS: CarRecord[] = [
-  { id: 1, name: '홍길동', carNumber: '24머 3734', 소속: '서울지부' },
-  { id: 2, name: '오감자', carNumber: '31구 2625', 소속: '부산지부' },
-  { id: 3, name: '김갑동', carNumber: '102다 3734', 소속: '인천지부' },
-  { id: 4, name: '이을숙', carNumber: '12사 1234', 소속: '대구지부' },
-  { id: 5, name: '지서방', carNumber: '50두 7889', 소속: '광주지부' },
-  { id: 6, name: '남한놈', carNumber: '98사 1235', 소속: '대전지부' },
-  { id: 7, name: '전봇대', carNumber: '72카 4252', 소속: '울산지부' },
-  { id: 8, name: '이세리나', carNumber: '101자 7889', 소속: '수원지부' },
+  { id: 1, name: '홍길동', carNumber: '24머 3734', 출입증: '[1] 상주 000' },
+  { id: 2, name: '오감자', carNumber: '31구 2625', 출입증: '[1] 상주 001' },
+  { id: 3, name: '김갑동', carNumber: '102다 3734', 출입증: '[1] 상주 002' },
+  { id: 4, name: '이을숙', carNumber: '12사 1234', 출입증: '[1] 상주 003' },
+  { id: 5, name: '지소연', carNumber: '50두 7889', 출입증: '[1] 상주 004' },
+  { id: 6, name: '카리나', carNumber: '98사 1235', 출입증: '[1] 상주 205' },
+  { id: 7, name: '전봇대', carNumber: '72카 4252', 출입증: '[1] 상주 120' },
+  { id: 8, name: '이세리나', carNumber: '101자 7889', 출입증: '[1] 상주 301' },
 ];
 
 /**
