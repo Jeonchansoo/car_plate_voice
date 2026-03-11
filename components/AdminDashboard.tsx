@@ -120,34 +120,62 @@ const AdminDashboard: React.FC = () => {
     const isCSV = file.name.toLowerCase().endsWith('.csv');
 
     if (isCSV) {
-      // CSV 파일: 텍스트로 읽어서 인코딩 처리
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        let text = event.target?.result as string;
+      // CSV 파일: 여러 인코딩으로 시도하여 한글 깨짐 방지
+      const tryEncodings = ['utf-8', 'euc-kr', 'cp949', 'utf-16le'];
+      let attemptIndex = 0;
 
-        // 한글 깨짐 감지 → EUC-KR로 재시도
-        if (hasGarbledKorean(text)) {
-          const reReader = new FileReader();
-          reReader.onload = (reEvent) => {
-            const reText = reEvent.target?.result as string;
-            processCSVText(reText);
-          };
-          reReader.readAsText(file, 'euc-kr');
-        } else {
-          processCSVText(text);
+      const tryReadWithEncoding = () => {
+        if (attemptIndex >= tryEncodings.length) {
+          alert('파일을 읽을 수 없습니다. 인코딩을 확인해주세요.');
+          return;
         }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          let text = event.target?.result as string;
+          
+          // BOM 제거
+          text = text.replace(/^\uFEFF/, '');
+
+          // 한글 깨짐 감지
+          if (hasGarbledKorean(text)) {
+            attemptIndex++;
+            tryReadWithEncoding();
+          } else {
+            processCSVText(text);
+          }
+        };
+        
+        reader.onerror = () => {
+          attemptIndex++;
+          tryReadWithEncoding();
+        };
+
+        reader.readAsText(file, tryEncodings[attemptIndex]);
       };
-      reader.readAsText(file, 'utf-8');
+
+      tryReadWithEncoding();
     } else {
       // XLSX/XLS 파일: ArrayBuffer로 읽기 (XLSX 포맷이 인코딩 자체 처리)
       const reader = new FileReader();
       reader.onload = (event) => {
-        const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const json = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
-        processUploadedData(json);
+        try {
+          const data = new Uint8Array(event.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { 
+            type: 'array',
+            codepage: 949 // CP949 (EUC-KR) 코드페이지 지정
+          });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const json = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+          processUploadedData(json);
+        } catch (error) {
+          console.error('엑셀 파일 읽기 오류:', error);
+          alert('엑셀 파일을 읽는 중 오류가 발생했습니다. 파일 형식을 확인해주세요.');
+        }
+      };
+      reader.onerror = () => {
+        alert('파일을 읽는 중 오류가 발생했습니다.');
       };
       reader.readAsArrayBuffer(file);
     }
@@ -157,13 +185,25 @@ const AdminDashboard: React.FC = () => {
 
   // CSV 텍스트를 파싱하여 데이터로 변환
   const processCSVText = (text: string) => {
-    // BOM 제거
-    const cleanText = text.replace(/^\uFEFF/, '');
-    const workbook = XLSX.read(cleanText, { type: 'string' });
-    const firstSheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[firstSheetName];
-    const json = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
-    processUploadedData(json);
+    try {
+      // BOM 제거 및 불필요한 공백 제거
+      const cleanText = text.replace(/^\uFEFF/, '').trim();
+      
+      // XLSX로 CSV 파싱 (더 안정적인 한글 처리)
+      const workbook = XLSX.read(cleanText, { 
+        type: 'string',
+        codepage: 949 // CP949 (EUC-KR) 코드페이지 지정
+      });
+      
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const json = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+      
+      processUploadedData(json);
+    } catch (error) {
+      console.error('CSV 파싱 오류:', error);
+      alert('CSV 파일을 파싱하는 중 오류가 발생했습니다. 파일 형식을 확인해주세요.');
+    }
   };
 
   // 요청 3: 업로드 데이터의 컬럼 매핑 수정

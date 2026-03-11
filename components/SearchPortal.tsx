@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User, CarRecord, ColumnDef } from '../types';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { usePressAndHoldSpeech } from '../hooks/usePressAndHoldSpeech';
+import { requestMicrophonePermission, checkMicrophonePermission } from '../utils/microphonePermission';
 
 const INITIAL_RECORDS: CarRecord[] = [
   { id: 1, name: '홍길동', carNumber: '24머 3734', 소속: '서울지부' },
@@ -92,6 +94,18 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
     stopListening,
   } = useSpeechRecognition({ lang: 'ko-KR' });
 
+  const {
+    status: pressAndHoldStatus,
+    isListening: isPressAndHoldListening,
+    rawTranscript: pressAndHoldTranscript,
+    digits: pressAndHoldDigits,
+    error: pressAndHoldError,
+    handleMouseDown,
+    handleMouseUp,
+    handleTouchStart,
+    handleTouchEnd,
+  } = usePressAndHoldSpeech({ lang: 'ko-KR' });
+
   useEffect(() => {
     const saved = localStorage.getItem('car_records');
     if (saved) {
@@ -101,9 +115,50 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
     if (savedCols) {
       setColumns(JSON.parse(savedCols));
     }
+
+    // 자동 마이크 권한 요청 (사용자 경험 향상)
+    const initializeMicrophone = async () => {
+      try {
+        const permissionState = await checkMicrophonePermission();
+        
+        if (permissionState === 'prompt') {
+          // 권한이 요청 needed 상태이면, 첫 음성 입력 시 자동으로 요청됨
+          console.log('마이크 권한이 필요합니다. 음성 입력 버튼을 클릭하면 권한을 요청합니다.');
+        } else if (permissionState === 'denied') {
+          console.log('마이크 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.');
+        }
+      } catch (error) {
+        console.log('마이크 권한 확인 중 오류:', error);
+      }
+    };
+
+    initializeMicrophone();
   }, []);
 
-  // 요청 3 & 5: 개선된 검색 로직
+  const handleVoiceInputClick = async () => {
+    if (speechStatus === 'unsupported') return;
+    
+    // 마이크 권한이 필요한 경우 자동 요청
+    const hasPermission = await requestMicrophonePermission();
+    if (!hasPermission) {
+      console.log('마이크 권한이 필요합니다.');
+    }
+    
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  const handlePressAndHoldStart = async () => {
+    // 마이크 권한이 필요한 경우 자동 요청
+    const hasPermission = await requestMicrophonePermission();
+    if (!hasPermission) {
+      console.log('마이크 권한이 필요합니다.');
+    }
+    handleMouseDown();
+  };
   const runSearch = (value: string) => {
     setHasSearched(true);
 
@@ -142,6 +197,13 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
       runSearch(speechDigits);
     }
   }, [speechDigits]);
+
+  useEffect(() => {
+    if (pressAndHoldDigits && pressAndHoldDigits !== query) {
+      setQuery(pressAndHoldDigits);
+      runSearch(pressAndHoldDigits);
+    }
+  }, [pressAndHoldDigits]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -203,39 +265,58 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
         </form>
 
         {/* 직접 입력 / 음성 입력 토글 버튼 영역 */}
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           <button
             type="button"
             onClick={() => {
-              const input = document.querySelector<HTMLInputElement>('input[placeholder^=\"차량번호\"]');
+              const input = document.querySelector<HTMLInputElement>('input[placeholder^="차량번호"]');
               input?.focus();
             }}
-            className="flex-1 py-2.5 rounded-xl bg-white/90 text-blue-700 font-semibold text-sm shadow-sm hover:bg-white"
+            className="py-2.5 rounded-xl bg-white/90 text-blue-700 font-semibold text-sm shadow-sm hover:bg-white flex items-center justify-center gap-2"
           >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
             직접 입력
           </button>
           <button
             type="button"
-            onClick={() => {
-              if (speechStatus === 'unsupported') return;
-              if (isListening) {
-                stopListening();
-              } else {
-                startListening();
-              }
-            }}
-            className={`flex-1 py-2.5 rounded-xl font-semibold text-sm shadow-sm transition ${speechStatus === 'unsupported'
+            onClick={handleVoiceInputClick}
+            className={`py-2.5 rounded-xl font-semibold text-sm shadow-sm transition flex items-center justify-center gap-2 ${speechStatus === 'unsupported'
                 ? 'bg-slate-500/60 text-slate-200 cursor-not-allowed'
                 : isListening
                   ? 'bg-red-500 text-white'
                   : 'bg-emerald-400 text-emerald-950 hover:bg-emerald-300'
               }`}
           >
-            {speechStatus === 'unsupported'
-              ? '브라우저가 음성 인식을 지원하지 않아요'
-              : isListening
-                ? '음성 인식 중지'
-                : '🎤 음성으로 입력'}
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="8" y1="23" x2="16" y2="23" />
+            </svg>
+            음성입력
+          </button>
+          <button
+            type="button"
+            onMouseDown={handlePressAndHoldStart}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchStart={handlePressAndHoldStart}
+            onTouchEnd={handleTouchEnd}
+            className={`py-2.5 rounded-xl font-semibold text-sm shadow-sm transition flex items-center justify-center gap-2 ${pressAndHoldStatus === 'unsupported'
+                ? 'bg-slate-500/60 text-slate-200 cursor-not-allowed'
+                : isPressAndHoldListening
+                  ? 'bg-red-500 text-white'
+                  : 'bg-purple-500 text-white hover:bg-purple-600'
+              }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="6" y="4" width="4" height="16" rx="1"/>
+              <rect x="14" y="4" width="4" height="16" rx="1"/>
+            </svg>
+            눌러서 음성입력
           </button>
         </div>
 
@@ -246,17 +327,23 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
               사용해 주세요.
             </p>
           )}
-          {speechError && (
-            <p className="text-red-100">
-              음성 인식 오류: <span className="underline underline-offset-2">{speechError}</span>
+          {pressAndHoldStatus === 'unsupported' && speechStatus !== 'unsupported' && (
+            <p className="text-yellow-100/90">
+              이 브라우저에서는 음성 인식(Web Speech API)이 지원되지 않습니다. 최신 Chrome 또는 Edge를
+              사용해 주세요.
             </p>
           )}
-          {rawTranscript && !speechError && (
+          {(speechError || pressAndHoldError) && (
+            <p className="text-red-100">
+              음성 인식 오류: <span className="underline underline-offset-2">{speechError || pressAndHoldError}</span>
+            </p>
+          )}
+          {(rawTranscript || pressAndHoldTranscript) && !speechError && !pressAndHoldError && (
             <p className="text-blue-100/90">
-              들은 내용: <span className="font-semibold">"{rawTranscript}"</span>
-              {speechDigits && (
+              들은 내용: <span className="font-semibold">"{rawTranscript || pressAndHoldTranscript}"</span>
+              {(speechDigits || pressAndHoldDigits) && (
                 <span className="ml-2">
-                  → 해석된 번호판 뒷자리: <span className="font-bold">{speechDigits}</span>
+                  → 해석된 번호판 뒷자리: <span className="font-bold">{speechDigits || pressAndHoldDigits}</span>
                 </span>
               )}
             </p>
@@ -289,18 +376,12 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
               return (
                 <div key={record.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-blue-50/30 transition">
                   <div className="flex items-center gap-6">
-                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 flex items-center justify-center text-white font-bold text-3xl shadow-lg shadow-blue-200/50">
                       {record.id}
                     </div>
                     <div>
                       <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">차주 성함</div>
-                      <div className="text-xl font-bold text-slate-900">{displayName}</div>
-                      {displayDept && (
-                        <>
-                          <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1 mt-2">소속</div>
-                          <div className="text-xl font-bold text-blue-600">{displayDept}</div>
-                        </>
-                      )}
+                      <div className="text-3xl font-bold text-slate-900">{displayName}</div>
                       {extraColumns.length > 0 && (
                         <div className="mt-3 space-y-1">
                           {extraColumns.map(col => {
@@ -317,9 +398,19 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
                       )}
                     </div>
                   </div>
-                  <div className="bg-slate-100 px-6 py-3 rounded-xl border-2 border-slate-200">
-                    <div className="text-[10px] text-slate-400 font-bold uppercase mb-1 text-center tracking-[0.2em]">Vehicle Number</div>
-                    <div className="text-2xl font-black text-slate-800 tracking-wider whitespace-nowrap">{carNumber}</div>
+                  <div className="flex flex-col md:flex-row md:items-center gap-6">
+                    {displayDept && (
+                      <>
+                        <div>
+                          <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">소속</div>
+                          <div className="text-4xl font-bold text-blue-600">{displayDept}</div>
+                        </div>
+                      </>
+                    )}
+                    <div className="bg-slate-100 px-6 py-3 rounded-xl border-2 border-slate-200">
+                      <div className="text-[10px] text-slate-400 font-bold uppercase mb-1 text-center tracking-[0.2em]">Vehicle Number</div>
+                      <div className="text-3xl font-black text-slate-800 tracking-wider whitespace-nowrap">{carNumber}</div>
+                    </div>
                   </div>
                 </div>
               );
