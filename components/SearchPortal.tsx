@@ -352,7 +352,7 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
       </section>
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b bg-slate-50 flex justify-between items-center">
+        <div className="px-4 py-3 border-b bg-slate-50 flex justify-between items-center">
           <h3 className="font-bold text-slate-800">조회 결과</h3>
           <span className="text-sm text-slate-500">총 {results.length}건</span>
         </div>
@@ -374,43 +374,68 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
               );
               
               return (
-                <div key={record.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-blue-50/30 transition">
-                  <div className="flex items-start gap-4">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 flex items-center justify-center text-white font-bold text-base shadow-lg shadow-blue-200/50">
-                      {record.id}
+                <div key={record.id} className="p-3 space-y-2 hover:bg-blue-50/30 transition border-b-4 border-slate-400 shadow-md">
+                  {/* 여러 행: ID, 차주 성함, 출입증 - 모바일에서도 가로로 표시 */}
+                  <div className="grid grid-cols-12 gap-2 min-w-0 items-stretch">
+                    {/* ID */}
+                    <div className="col-span-1 flex items-center justify-center py-2 min-w-0">
+                      <div className="text-xl font-black text-slate-700">
+                        {record.id}
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">차주 성함</div>
-                      <div className="text-3xl font-bold text-slate-900">{displayName}</div>
+                    
+                    {/* 차주 성함 */}
+                    <div className="col-span-4 flex flex-col items-center justify-center py-2 px-2 bg-white rounded-lg border border-slate-200 min-w-0">
+                      <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1 text-center">차주 성함</div>
+                      <div className="text-xl font-black text-slate-900 text-center truncate w-full">{displayName}</div>
                       {extraColumns.length > 0 && (
-                        <div className="mt-3 space-y-1">
-                          {extraColumns.map(col => {
+                        <div className="mt-1 space-y-1">
+                          {extraColumns.slice(0, 1).map(col => {
                             const value = record[col.id];
                             if (value === undefined || value === null || value === '') return null;
                             return (
-                              <div key={col.id} className="text-xs text-slate-600 flex gap-2">
-                                <span className="font-semibold text-slate-400 min-w-[3.5rem]">{col.label}</span>
-                                <span className="text-slate-800">{String(value)}</span>
+                              <div key={col.id} className="text-xs text-slate-600 text-center">
+                                <span className="font-semibold text-slate-400">{col.label}:</span>
+                                <span className="text-slate-800 ml-1 truncate block">{String(value)}</span>
                               </div>
                             );
                           })}
                         </div>
                       )}
                     </div>
-                  </div>
-                  <div className="flex flex-col md:flex-row md:items-center gap-6">
+
+                    {/* 출입증 */}
                     {displayPass && (
-                      <>
-                        <div>
-                          <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">출입증</div>
-                          <div className="text-4xl font-bold text-blue-600">{displayPass}</div>
-                        </div>
-                      </>
+                      <div className="col-span-7 flex flex-col items-center justify-center py-2 px-2 bg-blue-50 rounded-lg border border-blue-200 min-w-0">
+                        <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1 text-center">출입증</div>
+                        <div className="text-xl font-black text-blue-700 text-center truncate w-full">{displayPass}</div>
+                      </div>
                     )}
-                    <div className="bg-slate-100 px-6 py-3 rounded-xl border-2 border-slate-200">
-                      <div className="text-[10px] text-slate-400 font-bold uppercase mb-1 text-center tracking-[0.2em]">Vehicle Number</div>
-                      <div className="text-3xl font-black text-slate-800 tracking-wider whitespace-nowrap">{carNumber}</div>
+                  </div>
+
+                  {/* 추가 정보가 있을 경우 표시 */}
+                  {extraColumns.length > 1 && (
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="text-xs font-semibold text-slate-700 mb-1">추가 정보</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                        {extraColumns.slice(1).map(col => {
+                          const value = record[col.id];
+                          if (value === undefined || value === null || value === '') return null;
+                          return (
+                            <div key={col.id} className="text-xs text-slate-600 flex gap-2">
+                              <span className="font-semibold text-slate-400 min-w-[3.5rem]">{col.label}</span>
+                              <span className="text-slate-800">{String(value)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
+                  )}
+
+                  {/* 수직 열: 차량 번호 */}
+                  <div className="bg-slate-100 px-3 py-2 rounded-lg border border-slate-200">
+                    <div className="text-[9px] text-slate-400 font-bold uppercase mb-1 text-center tracking-[0.2em]">Vehicle Number</div>
+                    <div className="text-2xl font-black text-slate-800 tracking-wider whitespace-nowrap text-center">{carNumber}</div>
                   </div>
                 </div>
               );
