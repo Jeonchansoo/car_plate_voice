@@ -7,11 +7,11 @@ import { requestMicrophonePermission, checkMicrophonePermission } from '../utils
 const INITIAL_RECORDS: CarRecord[] = [
   { id: 1, name: '홍길동', carNumber: '24머 3734', 출입증: '[1] 상주 000' },
   { id: 2, name: '오감자', carNumber: '31구 2625', 출입증: '[1] 상주 001' },
-  { id: 3, name: '김갑동', carNumber: '102다 3734', 출입증: '[1] 상주 002' },
+  { id: 3, name: '김갑동', carNumber: '102다3734', 출입증: '[1] 상주 002' },
   { id: 4, name: '이을숙', carNumber: '12사 1234', 출입증: '[1] 상주 003' },
-  { id: 5, name: '지소연', carNumber: '50두 7889', 출입증: '[1] 상주 004' },
+  { id: 5, name: '지소연', carNumber: '50두9888', 출입증: '[1] 상주 004' },
   { id: 6, name: '카리나', carNumber: '98사 1235', 출입증: '[1] 상주 205' },
-  { id: 7, name: '전봇대', carNumber: '72카 4252', 출입증: '[1] 상주 120' },
+  { id: 7, name: '전봇대', carNumber: '72카4252', 출입증: '[1] 상주 120' },
   { id: 8, name: '이세리나', carNumber: '101자 7889', 출입증: '[1] 상주 301' },
 ];
 
@@ -173,13 +173,16 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
       const carNumber = getCarNumberValue(record, columns);
       if (!carNumber) return false;
       
-      // 차량번호에서 끝 4자리 추출
+      // 차량번호에서 끝 4자리 추출 (띄어쓰기 무관)
       const lastFour = extractLastFourDigits(carNumber);
-      // 전체 숫자도 추출
-      const allDigits = carNumber.replace(/[^0-9]/g, '');
       
-      // 끝 4자리에서 검색 또는 전체 숫자에서 검색
-      return lastFour.includes(searchDigits) || allDigits.includes(searchDigits);
+      // 정확히 4자리인 경우에만 완전 일치 검색
+      if (searchDigits.length === 4) {
+        return lastFour === searchDigits;
+      }
+      
+      // 4자리 미만인 경우 끝 4자리에서 시작하는지 확인
+      return lastFour.startsWith(searchDigits);
     });
 
     setResults(filtered);
