@@ -272,6 +272,8 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
           <button
             type="button"
             onClick={() => {
+              setQuery('');
+              setHasSearched(false);
               const input = document.querySelector<HTMLInputElement>('input[placeholder^="차량번호"]');
               input?.focus();
             }}
