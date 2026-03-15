@@ -83,6 +83,7 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
   const [columns, setColumns] = useState<ColumnDef[]>(DEFAULT_COLUMNS);
   const [results, setResults] = useState<CarRecord[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [isTextSearchMode, setIsTextSearchMode] = useState(false);
 
   const {
     status: speechStatus,
@@ -147,6 +148,9 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
     if (isListening) {
       stopListening();
     } else {
+      // 새 음성 입력 시작 시 기존 조회 결과 초기화
+      setQuery('');
+      setHasSearched(false);
       startListening();
     }
   };
@@ -188,10 +192,32 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
     setResults(filtered);
   };
 
+  const runTextSearch = (value: string) => {
+    setHasSearched(true);
+    
+    if (!value.trim()) {
+      setResults([]);
+      return;
+    }
+
+    const searchValue = value.toLowerCase().trim();
+    
+    const filtered = records.filter(record => {
+      // 모든 필드에서 검색 (문자와 숫자 모두)
+      return Object.values(record).some(fieldValue => {
+        if (fieldValue === null || fieldValue === undefined) return false;
+        const fieldString = String(fieldValue).toLowerCase();
+        return fieldString.includes(searchValue);
+      });
+    });
+
+    setResults(filtered);
+  };
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query) return;
-    runSearch(query);
+    if (!query.trim()) return;
+    runTextSearch(query);
   };
 
   useEffect(() => {
@@ -213,14 +239,13 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
       <section className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-3xl p-6 md:p-8 text-white shadow-2xl shadow-blue-200">
         <div className="mb-4">
           <h2 className="text-xl font-bold">안녕하세요, {user.name}님!</h2>
-          <p className="text-blue-100 text-sm mt-1">차량 번호판 뒷자리(4자리)를 입력하여 차주 정보를 빠르고 정확하게 조회하세요.</p>
+          <p className="text-blue-100 text-sm mt-1">차량번호, 이름, 출입증 등 문자나 숫자를 입력하여 차주 정보를 빠르고 정확하게 조회하세요.</p>
         </div>
 
         <form onSubmit={handleSearch} className="relative w-full">
           <input
             type="text"
-            inputMode="numeric"
-            placeholder="차량번호 뒷자리 4자리 입력 (예: 3734)"
+            placeholder={isTextSearchMode ? "문자로 조회 중입니다... 검색어를 입력하세요" : "차량번호 뒷자리 4자리 입력 (예: 3734)"}
             className="w-full pl-12 pr-28 py-4 rounded-2xl text-slate-900 text-4xl font-bold text-center tracking-[0.15em] outline-none focus:ring-4 focus:ring-blue-400/50 shadow-lg placeholder:text-slate-400 placeholder:font-normal placeholder:text-[10px] placeholder:text-center placeholder:tracking-normal"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -268,27 +293,41 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
         </form>
 
         {/* 직접 입력 / 음성 입력 토글 버튼 영역 */}
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="mt-4 grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => {
-              setQuery('');
-              setHasSearched(false);
-              const input = document.querySelector<HTMLInputElement>('input[placeholder^="차량번호"]');
-              input?.focus();
+              if (hasSearched) {
+                // 검색 후 결과가 있든 없든 초기화
+                setQuery('');
+                setHasSearched(false);
+                setResults([]);
+                setIsTextSearchMode(false);
+              } else if (query.trim()) {
+                // 결과가 없을 때는 검색 실행
+                setIsTextSearchMode(true);
+                runTextSearch(query);
+              }
             }}
-            className="py-2.5 rounded-xl bg-white/90 text-blue-700 font-semibold text-sm shadow-sm hover:bg-white flex items-center justify-center gap-2"
+            className={`py-2.5 rounded-xl font-semibold text-sm shadow-sm transition flex items-center justify-center gap-2 ${
+              hasSearched
+                ? 'bg-red-500 text-white hover:bg-red-600'
+                : query.trim()
+                  ? 'bg-red-500 text-white hover:bg-red-600'
+                  : 'bg-[#C0FFFF] text-slate-800 hover:bg-[#B0FFFF]'
+            }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+              <path d="M8 11h6"/>
             </svg>
-            직접 입력
+            {query.trim() ? '검색중' : '검색'}
           </button>
           <button
             type="button"
             onClick={handleVoiceInputClick}
-            className={`py-2.5 px-3 rounded-xl font-semibold text-xs shadow-sm transition flex items-center justify-center gap-2 min-w-0 flex-shrink-0 ${speechStatus === 'unsupported'
+            className={`py-2.5 rounded-xl font-semibold text-sm shadow-sm transition flex items-center justify-center gap-2 ${speechStatus === 'unsupported'
                 ? 'bg-slate-500/60 text-slate-200 cursor-not-allowed'
                 : isListening
                   ? 'bg-red-500 text-white'
@@ -301,27 +340,7 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
               <line x1="12" y1="19" x2="12" y2="23" />
               <line x1="8" y1="23" x2="16" y2="23" />
             </svg>
-            음성입력
-          </button>
-          <button
-            type="button"
-            onMouseDown={handlePressAndHoldStart}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onTouchStart={handlePressAndHoldStart}
-            onTouchEnd={handleTouchEnd}
-            className={`py-2.5 px-3 rounded-xl font-semibold text-xs shadow-sm transition flex items-center justify-center gap-2 min-w-0 flex-shrink-0 ${pressAndHoldStatus === 'unsupported'
-                ? 'bg-slate-500/60 text-slate-200 cursor-not-allowed'
-                : isPressAndHoldListening
-                  ? 'bg-red-500 text-white'
-                  : 'bg-purple-500 text-white hover:bg-purple-600'
-              }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="6" y="4" width="4" height="16" rx="1"/>
-              <rect x="14" y="4" width="4" height="16" rx="1"/>
-            </svg>
-            눌러서 음성입력
+            숫자음성
           </button>
         </div>
 
@@ -469,7 +488,7 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
           {['3734', '2625', '1234', '7889'].map(num => (
             <button
               key={num}
-              onClick={() => { setQuery(num); setHasSearched(false); }}
+              onClick={() => { setQuery(num); setHasSearched(false); setIsTextSearchMode(false); }}
               className="p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:text-blue-600 transition text-sm font-medium text-slate-600 text-center shadow-sm"
             >
               "{num}" 검색해보기
