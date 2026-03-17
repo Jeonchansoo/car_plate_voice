@@ -246,7 +246,7 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
           <input
             type="text"
             placeholder={isTextSearchMode ? "문자로 조회 중입니다... 검색어를 입력하세요" : "차량번호 뒷자리 4자리 입력 (예: 3734)"}
-            className="w-full pl-10 pr-24 py-3 rounded-xl text-slate-900 text-5xl font-bold text-center tracking-[0.15em] outline-none focus:ring-4 focus:ring-blue-400/50 shadow-lg placeholder:text-slate-400 placeholder:font-normal placeholder:text-[9px] placeholder:text-center placeholder:tracking-normal"
+            className="w-full pl-10 pr-24 py-3 rounded-xl text-slate-900 text-2xl font-bold text-center tracking-[0.15em] outline-none focus:ring-4 focus:ring-blue-400/50 shadow-lg placeholder:text-slate-400 placeholder:font-normal placeholder:text-[9px] placeholder:text-center placeholder:tracking-normal"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -402,9 +402,9 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
                   {/* 여러 행: 차주 성함, 출입증 - 모바일에서도 가로로 표시 */}
                   <div className="grid grid-cols-12 gap-1 min-w-0 items-stretch">
                     {/* 차주 성함 */}
-                    <div className="col-span-6 flex flex-col items-center justify-center py-1 px-1 bg-white rounded border border-slate-200 min-w-0">
+                    <div className="col-span-4 flex flex-col items-center justify-center py-1 px-1 bg-white rounded border border-slate-200 min-w-0">
                       <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mb-0.5 text-center">차주 성함</div>
-                      <div className="text-3xl font-black text-slate-900 text-center truncate w-full">{displayName}</div>
+                      <div className="text-xl font-black text-slate-900 text-center truncate w-full">{displayName}</div>
                       {extraColumns.length > 0 && (
                         <div className="mt-0.5 space-y-0.5">
                           {extraColumns.slice(0, 1).map(col => {
@@ -423,9 +423,9 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
 
                     {/* 출입증 */}
                     {displayPass && (
-                      <div className="col-span-6 flex flex-col items-center justify-center py-1 px-1 bg-blue-50 rounded border border-blue-200 min-w-0">
+                      <div className="col-span-8 flex flex-col items-center justify-center py-1 px-1 bg-blue-50 rounded border border-blue-200 min-w-0">
                         <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mb-0.5 text-center">출입증</div>
-                        <div className="text-3xl font-black text-blue-700 text-center truncate w-full">{displayPass}</div>
+                        <div className="text-xl font-black text-blue-700 text-center truncate w-full">{displayPass}</div>
                       </div>
                     )}
                   </div>
@@ -452,7 +452,7 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
                   {/* 수직 열: 차량 번호 */}
                   <div className="bg-slate-100 px-2 py-1 rounded border border-slate-200">
                     <div className="text-[8px] text-slate-400 font-bold uppercase mb-0.5 text-center tracking-[0.2em]">Vehicle Number</div>
-                    <div className="text-4xl font-black text-slate-800 tracking-wider whitespace-nowrap text-center">{carNumber}</div>
+                    <div className="text-2xl font-black text-slate-800 tracking-wider whitespace-nowrap text-center">{carNumber}</div>
                   </div>
                 </div>
               );

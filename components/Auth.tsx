@@ -29,6 +29,24 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           status: UserStatus.APPROVED,
           createdAt: new Date().toISOString(),
         });
+      } else if (email === 'admin5826@test.com') {
+        onLogin({
+          id: '4',
+          name: '관리자',
+          email: 'admin5826@test.com',
+          role: UserRole.ADMIN,
+          status: UserStatus.APPROVED,
+          createdAt: new Date().toISOString(),
+        });
+      } else if (email === 'admin7231@test.com') {
+        onLogin({
+          id: '3',
+          name: '관리자',
+          email: 'admin7231@test.com',
+          role: UserRole.ADMIN,
+          status: UserStatus.APPROVED,
+          createdAt: new Date().toISOString(),
+        });
       } else if (email === 'user@test.com') {
         onLogin({
           id: '2',
@@ -39,7 +57,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           createdAt: new Date().toISOString(),
         });
       } else {
-        setError('존재하지 않는 계정이거나 승인 대기 중입니다. (관리자: admin@test.com / 사용자: user@test.com)');
+        setError('존재하지 않는 계정이거나 승인 대기 중입니다. (사용자: user@test.com)');
       }
     } else {
       // Mock Signup Logic
@@ -117,7 +135,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         <div className="mt-8 p-4 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-400">
           <p className="font-semibold text-slate-500 mb-1">MVP 데모 안내:</p>
           <ul className="list-disc list-inside space-y-1">
-            <li>관리자: admin@test.com</li>
             <li>사용자: user@test.com</li>
           </ul>
         </div>
