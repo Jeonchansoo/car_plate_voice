@@ -246,7 +246,7 @@ const SearchPortal: React.FC<{ user: User }> = ({ user }) => {
           <input
             type="text"
             placeholder={isTextSearchMode ? "문자로 조회 중입니다... 검색어를 입력하세요" : "차량번호 뒷자리 4자리 입력 (예: 3734)"}
-            className="w-full pl-10 pr-24 py-3 rounded-xl text-slate-900 text-3xl font-bold text-center tracking-[0.15em] outline-none focus:ring-4 focus:ring-blue-400/50 shadow-lg placeholder:text-slate-400 placeholder:font-normal placeholder:text-[9px] placeholder:text-center placeholder:tracking-normal"
+            className="w-full pl-10 pr-24 py-3 rounded-xl text-slate-900 text-5xl font-bold text-center tracking-[0.15em] outline-none focus:ring-4 focus:ring-blue-400/50 shadow-lg placeholder:text-slate-400 placeholder:font-normal placeholder:text-[9px] placeholder:text-center placeholder:tracking-normal"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
